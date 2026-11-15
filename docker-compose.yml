@@ -1,0 +1,88 @@
+services:
+  localstack:
+    image: localstack/localstack:4.3
+    ports:
+      - "4567:4566"
+    environment:
+      - SERVICES=sqs
+      - AWS_DEFAULT_REGION=us-east-1
+    volumes:
+      - ./localstack/init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh
+      - ./localstack/samples:/samples:ro
+    healthcheck:
+      test: ["CMD-SHELL", "awslocal sqs get-queue-url --queue-name os-events >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=billing
+      - POSTGRES_PASSWORD=billing
+      - POSTGRES_DB=billing
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./localdev/create-test-db.sql:/docker-entrypoint-initdb.d/create-test-db.sql:ro
+    healthcheck:
+      # Testa pela rede (-h 127.0.0.1): durante a criação inicial do banco o
+      # Postgres sobe um servidor temporário só no socket local, e o
+      # migrate não pode conectar nele
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U billing -d billing"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    image: migrate/migrate:v4.17.1
+    volumes:
+      - ./migrations:/migrations
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["-path=/migrations", "-database=postgres://billing:billing@postgres:5432/billing?sslmode=disable", "up"]
+
+  billing-service:
+    build: .
+    ports:
+      - "8083:8080"
+    environment:
+      - PORT=8080
+      - JWT_SECRET=${JWT_SECRET:-dev-secret}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=billing
+      - DB_PASSWORD=billing
+      - DB_NAME=billing
+      - DB_SSLMODE=disable
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - PAYMENT_PROVIDER_URL=http://payment-mock:8080
+      - PAYMENT_CLIENT_ID=autoshop-client
+      - PAYMENT_CLIENT_SECRET=autoshop-secret
+      - PAYMENT_NOTIFICATION_URL=http://billing-service:8080/payments/webhook
+      - PAYMENT_TIMEOUT=${PAYMENT_TIMEOUT:-15m}
+      - NEW_RELIC_LICENSE_KEY=${NEW_RELIC_LICENSE_KEY:-}
+      - NEW_RELIC_APP_NAME=autoshop-billing
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      payment-mock:
+        condition: service_started
+      localstack:
+        condition: service_healthy
+
+  # Mock do Mercado Pago (repositório payment-mock-autoshop, clonado ao lado
+  # deste)
+  payment-mock:
+    build: ../payment-mock-autoshop
+    ports:
+      - "8090:8080"
+    environment:
+      - MOCK_CLIENT_ID=autoshop-client
+      - MOCK_CLIENT_SECRET=autoshop-secret
+      - MOCK_PUBLIC_URL=http://localhost:8090
+      - MOCK_PAYMENT_DELAY=5s
