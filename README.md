@@ -84,6 +84,7 @@ Pré-requisitos: Docker, e o repositório
 clonado na mesma pasta que este.
 
 ```bash
+cp .env.example .env   # senha do PostgreSQL de desenvolvimento
 docker compose up --build
 curl http://localhost:8083/health
 ```
