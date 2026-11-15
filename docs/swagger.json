@@ -1,0 +1,366 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "Orçamento e pagamento das ordens de serviço (Checkout Pro do Mercado Pago ou mock).",
+        "title": "AutoShop — Billing Service",
+        "contact": {},
+        "version": "1.0"
+    },
+    "basePath": "/",
+    "paths": {
+        "/budgets/{order_id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mostra o orçamento da OS, com itens, totais e status",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "budgets"
+                ],
+                "summary": "Consultar orçamento",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID da OS",
+                        "name": "order_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Budget"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/health": {
+            "get": {
+                "description": "Indica se o processo da API está de pé",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "health"
+                ],
+                "summary": "Health check",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/payments/webhook": {
+            "post": {
+                "description": "Recebe o aviso do Mercado Pago (ou do mock) de que um pagamento mudou. O status é confirmado consultando o provedor.",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "payments"
+                ],
+                "summary": "Webhook do provedor de pagamento",
+                "parameters": [
+                    {
+                        "description": "Aviso do provedor",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/dto.PaymentNotification"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "Tipo do aviso (payment)",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "ID do pagamento no provedor",
+                        "name": "data.id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/payments/{order_id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Mostra o pagamento da OS, incluindo o link de pagamento enviado ao cliente",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "payments"
+                ],
+                "summary": "Consultar pagamento",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID da OS",
+                        "name": "order_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.Payment"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "domain.Budget": {
+            "type": "object",
+            "properties": {
+                "correlation_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.BudgetItem"
+                    }
+                },
+                "order_id": {
+                    "type": "string"
+                },
+                "saga_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/domain.BudgetStatus"
+                },
+                "total": {
+                    "type": "number"
+                },
+                "total_parts": {
+                    "type": "number"
+                },
+                "total_services": {
+                    "type": "number"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.BudgetItem": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "$ref": "#/definitions/domain.ItemKind"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "integer"
+                },
+                "reference_id": {
+                    "type": "string"
+                },
+                "unit_price": {
+                    "type": "number"
+                }
+            }
+        },
+        "domain.BudgetStatus": {
+            "type": "string",
+            "enum": [
+                "gerado",
+                "aprovado",
+                "cancelado"
+            ],
+            "x-enum-varnames": [
+                "BudgetGenerated",
+                "BudgetApproved",
+                "BudgetCancelled"
+            ]
+        },
+        "domain.ItemKind": {
+            "type": "string",
+            "enum": [
+                "servico",
+                "peca"
+            ],
+            "x-enum-varnames": [
+                "ItemService",
+                "ItemPart"
+            ]
+        },
+        "domain.Payment": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "budget_id": {
+                    "type": "string"
+                },
+                "checkout_url": {
+                    "type": "string"
+                },
+                "correlation_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "failure_reason": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "order_id": {
+                    "type": "string"
+                },
+                "provider_payment_id": {
+                    "type": "string"
+                },
+                "provider_preference_id": {
+                    "type": "string"
+                },
+                "saga_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/domain.PaymentStatus"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.PaymentStatus": {
+            "type": "string",
+            "enum": [
+                "pendente",
+                "aprovado",
+                "recusado",
+                "expirado",
+                "estornado"
+            ],
+            "x-enum-varnames": [
+                "PaymentPending",
+                "PaymentApproved",
+                "PaymentRejected",
+                "PaymentExpired",
+                "PaymentRefunded"
+            ]
+        },
+        "dto.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "errors": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/errors.ValidationError"
+                    }
+                }
+            }
+        },
+        "dto.PaymentNotification": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "data": {
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "errors.ValidationError": {
+            "type": "object",
+            "properties": {
+                "field": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "Digite: Bearer {seu_token}",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    }
+}
