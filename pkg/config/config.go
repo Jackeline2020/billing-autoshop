@@ -8,6 +8,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -52,4 +54,12 @@ func NewPostgresPool(ctx context.Context) (*pgxpool.Pool, error) {
 		return nil, fmt.Errorf("erro ao conectar ao Postgres: %w", err)
 	}
 	return pool, nil
+}
+
+// LoadAWSConfig carrega credenciais e região pela cadeia padrão do SDK
+// (variáveis de ambiente, IRSA no Kubernetes, perfil local). A variável
+// AWS_ENDPOINT_URL, lida nativamente pelo SDK, aponta para o LocalStack em
+// desenvolvimento e homologação.
+func LoadAWSConfig(ctx context.Context) (aws.Config, error) {
+	return awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(Env("AWS_REGION", "us-east-1")))
 }

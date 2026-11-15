@@ -36,3 +36,10 @@ func TestNewPostgresPool_InvalidDSN(t *testing.T) {
 	_, err := NewPostgresPool(context.Background())
 	assert.Error(t, err)
 }
+
+func TestLoadAWSConfig(t *testing.T) {
+	t.Setenv("AWS_REGION", "sa-east-1")
+	cfg, err := LoadAWSConfig(context.Background())
+	assert.NoError(t, err)
+	assert.Equal(t, "sa-east-1", cfg.Region)
+}

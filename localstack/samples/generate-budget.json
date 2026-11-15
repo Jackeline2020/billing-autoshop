@@ -1,0 +1,1 @@
+{"message_id":"b-001","type":"GenerateBudget","saga_id":"saga-teste","order_id":"os-teste","correlation_id":"corr-teste","occurred_at":"2026-11-15T00:00:00Z","payload":{"services":[{"id":"s1","name":"Troca de pastilhas","price":250}],"parts":[{"id":"p1","name":"Pastilha de freio","quantity":1,"unit_price":100}]}}

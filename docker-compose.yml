@@ -1,4 +1,20 @@
 services:
+  localstack:
+    image: localstack/localstack:4.3
+    ports:
+      - "4567:4566"
+    environment:
+      - SERVICES=sqs
+      - AWS_DEFAULT_REGION=us-east-1
+    volumes:
+      - ./localstack/init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh
+      - ./localstack/samples:/samples:ro
+    healthcheck:
+      test: ["CMD-SHELL", "awslocal sqs get-queue-url --queue-name os-events >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   postgres:
     image: postgres:16-alpine
     environment:
@@ -10,7 +26,10 @@ services:
     volumes:
       - ./localdev/create-test-db.sql:/docker-entrypoint-initdb.d/create-test-db.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U billing -d billing"]
+      # Testa pela rede (-h 127.0.0.1): durante a criação inicial do banco o
+      # Postgres sobe um servidor temporário só no socket local, e o
+      # migrate não pode conectar nele
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U billing -d billing"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -37,6 +56,10 @@ services:
       - DB_PASSWORD=billing
       - DB_NAME=billing
       - DB_SSLMODE=disable
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
       - PAYMENT_PROVIDER_URL=http://payment-mock:8080
       - PAYMENT_CLIENT_ID=autoshop-client
       - PAYMENT_CLIENT_SECRET=autoshop-secret
@@ -49,6 +72,8 @@ services:
         condition: service_completed_successfully
       payment-mock:
         condition: service_started
+      localstack:
+        condition: service_healthy
 
   # Mock do Mercado Pago (repositório payment-mock-autoshop, clonado ao lado
   # deste)
