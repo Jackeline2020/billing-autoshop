@@ -125,7 +125,11 @@ DB_HOST=localhost DB_PORT=5433 DB_NAME=billing_test go test ./... -coverprofile=
 O pipeline exige **cobertura mínima de 80%** (`scripts/coverage.sh`) e
 envia a análise para o SonarCloud.
 
-<!-- Evidências: adicionar print do SonarCloud e link do projeto -->
+Resultado no SonarCloud (branch `main`): **96,1% de cobertura**, nota A em
+segurança, confiabilidade e manutenibilidade, e 0% de duplicação.
+Projeto: [Jackeline2020_billing-autoshop](https://sonarcloud.io/project/overview?id=Jackeline2020_billing-autoshop).
+
+![Análise do SonarCloud](assets/sonar-cobertura.png)
 
 ## CI/CD
 
