@@ -37,8 +37,27 @@ services:
       - DB_PASSWORD=billing
       - DB_NAME=billing
       - DB_SSLMODE=disable
+      - PAYMENT_PROVIDER_URL=http://payment-mock:8080
+      - PAYMENT_CLIENT_ID=autoshop-client
+      - PAYMENT_CLIENT_SECRET=autoshop-secret
+      - PAYMENT_NOTIFICATION_URL=http://billing-service:8080/payments/webhook
+      - PAYMENT_TIMEOUT=${PAYMENT_TIMEOUT:-15m}
       - NEW_RELIC_LICENSE_KEY=${NEW_RELIC_LICENSE_KEY:-}
       - NEW_RELIC_APP_NAME=autoshop-billing
     depends_on:
       migrate:
         condition: service_completed_successfully
+      payment-mock:
+        condition: service_started
+
+  # Mock do Mercado Pago (repositório payment-mock-autoshop, clonado ao lado
+  # deste)
+  payment-mock:
+    build: ../payment-mock-autoshop
+    ports:
+      - "8090:8080"
+    environment:
+      - MOCK_CLIENT_ID=autoshop-client
+      - MOCK_CLIENT_SECRET=autoshop-secret
+      - MOCK_PUBLIC_URL=http://localhost:8090
+      - MOCK_PAYMENT_DELAY=5s

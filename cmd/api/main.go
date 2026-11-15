@@ -10,10 +10,13 @@ import (
 	"syscall"
 	"time"
 
+	"billing-autoshop/internal/gateway"
 	"billing-autoshop/internal/handler"
 	"billing-autoshop/internal/middleware"
+	"billing-autoshop/internal/notifier"
 	"billing-autoshop/internal/repository"
 	"billing-autoshop/internal/usecase"
+	"billing-autoshop/internal/worker"
 	"billing-autoshop/pkg/config"
 	"billing-autoshop/pkg/observability"
 
@@ -37,6 +40,27 @@ func main() {
 	budgetUC := usecase.NewBudgetUseCase(budgetRepo)
 	budgetHandler := handler.NewBudgetHandler(budgetUC)
 
+	// Provedor de pagamento: Mercado Pago real ou payment-mock-autoshop,
+	// conforme a configuração (ADR-007)
+	paymentGateway := gateway.NewMercadoPago(gateway.Config{
+		BaseURL:      config.Env("PAYMENT_PROVIDER_URL", "http://localhost:8090"),
+		ClientID:     config.Env("PAYMENT_CLIENT_ID", "autoshop-client"),
+		ClientSecret: config.Env("PAYMENT_CLIENT_SECRET", "autoshop-secret"),
+	})
+	paymentTimeout, err := time.ParseDuration(config.Env("PAYMENT_TIMEOUT", "15m"))
+	if err != nil {
+		log.Fatalf("PAYMENT_TIMEOUT inválido: %v", err)
+	}
+	paymentUC := usecase.NewPaymentUseCase(
+		repository.NewPaymentPostgresRepository(db), budgetUC, paymentGateway, notifier.LogNotifier{},
+		usecase.PaymentConfig{
+			NotificationURL: config.Env("PAYMENT_NOTIFICATION_URL", "http://localhost:8083/payments/webhook"),
+			Timeout:         paymentTimeout,
+		},
+	)
+	paymentHandler := handler.NewPaymentHandler(paymentUC)
+	go worker.RunExpiration(ctx, paymentUC, 30*time.Second)
+
 	r := gin.New()
 	r.Use(gin.Recovery())
 	if nrApp != nil {
@@ -45,11 +69,15 @@ func main() {
 	r.Use(middleware.Logger())
 
 	r.GET("/health", handler.HealthCheck)
+	// Chamado pelo provedor de pagamento: não usa JWT. O aviso só informa o
+	// ID, e o status é sempre confirmado no provedor.
+	r.POST("/payments/webhook", paymentHandler.Webhook)
 
 	protected := r.Group("/")
 	protected.Use(middleware.AuthMiddleware())
 	{
 		protected.GET("/budgets/:order_id", budgetHandler.GetByOrderID)
+		protected.GET("/payments/:order_id", paymentHandler.GetByOrderID)
 	}
 
 	srv := &http.Server{
