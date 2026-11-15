@@ -19,7 +19,7 @@ services:
     image: postgres:16-alpine
     environment:
       - POSTGRES_USER=billing
-      - POSTGRES_PASSWORD=billing
+      - POSTGRES_PASSWORD=${DB_PASSWORD:?defina DB_PASSWORD no seu .env (veja .env.example)}
       - POSTGRES_DB=billing
     ports:
       - "5433:5432"
@@ -41,7 +41,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: ["-path=/migrations", "-database=postgres://billing:billing@postgres:5432/billing?sslmode=disable", "up"]
+    command: ["-path=/migrations", "-database=postgres://billing:${DB_PASSWORD:?defina DB_PASSWORD no seu .env (veja .env.example)}@postgres:5432/billing?sslmode=disable", "up"]
 
   billing-service:
     build: .
@@ -53,7 +53,7 @@ services:
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=billing
-      - DB_PASSWORD=billing
+      - DB_PASSWORD=${DB_PASSWORD:?defina DB_PASSWORD no seu .env (veja .env.example)}
       - DB_NAME=billing
       - DB_SSLMODE=disable
       - AWS_REGION=us-east-1
