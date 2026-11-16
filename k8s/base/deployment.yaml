@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: autoshop-billing
+  namespace: autoshop
+  labels:
+    app: autoshop-billing
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: autoshop-billing
+  template:
+    metadata:
+      labels:
+        app: autoshop-billing
+    spec:
+      serviceAccountName: autoshop-billing
+      # UID/GID 10001 é o usuário não-root criado no Dockerfile
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+      containers:
+        - name: autoshop-billing
+          # A tag é trocada pelo pipeline pela imagem do commit (kustomize edit set image)
+          image: autoshop-billing:dev
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: autoshop-billing-config
+            - secretRef:
+                name: autoshop-billing-secrets
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 48Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
