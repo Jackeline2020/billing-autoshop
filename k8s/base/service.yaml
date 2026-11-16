@@ -1,0 +1,13 @@
+# Recebe o webhook do provedor de pagamento e, na AWS, é exposto para consultas
+apiVersion: v1
+kind: Service
+metadata:
+  name: autoshop-billing
+  namespace: autoshop
+spec:
+  type: ClusterIP
+  selector:
+    app: autoshop-billing
+  ports:
+    - port: 8080
+      targetPort: 8080
